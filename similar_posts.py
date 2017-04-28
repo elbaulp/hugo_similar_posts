@@ -25,20 +25,23 @@ def readPosts(path, english=False):
     titleRegEx = r'title ?[:=] ?"?([^"\n]*)'
 
     for file in os.listdir(path):
-        with open(os.path.join(path, file), 'r') as infile:
-            txt = infile.read()
-            title = re.search(titleRegEx, txt)
-            data = [[os.path.basename(infile.name), txt, title.group(1)]]
+        p = os.path.join(path, file)
+        if not os.path.isdir(p):
+            with open(p, 'r') as infile:
+                print(p)
+                txt = infile.read()
+                title = re.search(titleRegEx, txt)
+                data = [[os.path.basename(infile.name), txt, title.group(1)]]
 
-            isEnglish = re.search('\.en\.md|\.en\.markdown', infile.name)
+                isEnglish = re.search('\.en\.md|\.en\.markdown', infile.name)
 
-            if english and isEnglish:
-                df = df.append(data, ignore_index=True)
-            elif not english and not isEnglish:
-                df = df.append(data, ignore_index=True)
+                if english and isEnglish:
+                    df = df.append(data, ignore_index=True)
+                elif not english and not isEnglish:
+                    df = df.append(data, ignore_index=True)
 
     # Save for latter use
-    #df.to_csv('./post_data.csv', index=False)
+    # df.to_csv('./post_data.csv', index=False)
 
     return df
 
@@ -315,7 +318,8 @@ def clusterPost(clusters=11, english=False, max_df=0.08, min_df=8):
 
     stop = stop + stopE
 
-    df = readPosts('./post', english=english)
+    df = readPosts('/home/hkr/Desarrollo/algui91-hugo/content/post',
+                   english=english)
 
     df[1] = df[1].apply(preprocessor)
     # df.to_csv('./post_data.cleanded.csv')
