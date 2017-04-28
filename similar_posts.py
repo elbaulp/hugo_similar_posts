@@ -9,6 +9,7 @@ import re
 import matplotlib.pyplot as plt
 import pandas as pd
 import mpld3
+import numpy as np
 from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 from nltk.stem.snowball import SnowballStemmer
@@ -16,6 +17,7 @@ from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.manifold import MDS
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.metrics.pairwise import euclidean_distances
 
 
 def readPosts(path, english=False):
@@ -110,7 +112,7 @@ def KmeansWrapper(true_k, data, load=False):
 
     if load:
         km = joblib.load(modelName)
-        clusters = km.labels_.tolist()
+        labels = km.labels_
     else:
         km = KMeans(n_clusters=true_k,
                     init='k-means++',
@@ -120,10 +122,10 @@ def KmeansWrapper(true_k, data, load=False):
                     random_state=0,
                     verbose=0)
         km.fit_predict(data)
-        clusters = km.labels_.tolist()
+        labels = km.labels_
         joblib.dump(km,  modelName)
 
-    return clusters
+    return labels, km.cluster_centers_
 
 
 def elbowMethod(X, k=21):
@@ -161,7 +163,6 @@ def plotPCA(df, true_k, clusters, X, english=False):
     xs, ys = pos[:, 0], pos[:, 1]
 
     import matplotlib.cm as cm
-    import numpy as np
 
     # set up colors per clusters using a dict
     cluster_colors = cm.rainbow(np.linspace(0, 1, true_k))
@@ -178,7 +179,7 @@ def plotPCA(df, true_k, clusters, X, english=False):
     groups = df2.groupby('label')
 
     pd.set_option('display.max_rows', len(df2))
-    print(df2.sort_values(by='label')[['label', 'title', 'title2']])
+    # print(df2.sort_values(by='label')[['label', 'title', 'title2']])
 
     filename = './labels.%s.csv' % ('en' if english else 'es')
 
@@ -335,7 +336,7 @@ def clusterPost(n_clusters=11, english=False, max_df=0.08, min_df=8):
                                 max_df=max_df,
                                 min_df=min_df)
 
-    clusters = KmeansWrapper(n_clusters, X)
+    clusters, centers = KmeansWrapper(n_clusters, X, load=False)
 
     # elbowMethod(X)
     plotPCA(df=df,
@@ -344,12 +345,24 @@ def clusterPost(n_clusters=11, english=False, max_df=0.08, min_df=8):
             X=X,
             english=english)
 
+    print('Clusters: %d ' % n_clusters)
+
+    for i in xrange(n_clusters):
+        print(i)
+        c0 = np.where(clusters == i)
+        X_c0 = X[c0]
+        D = euclidean_distances(X_c0, centers[i])
+        # D[np.where(D > 0.7)] = 0
+
+        print('Distande: %s' % D)
+        print('Sum: %s ' % np.sum(D))
+
 
 #  Main
 
 # Spanish
 clusterPost()
-clusterPost(n_clusters=3,
-            english=True,
-            max_df=0.7,
-            min_df=2)
+# clusterPost(n_clusters=3,
+#              english=True,
+#              max_df=0.7,
+#              min_df=2)
