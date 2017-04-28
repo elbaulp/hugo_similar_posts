@@ -308,21 +308,34 @@ def plotPCA(df, true_k):
 # nltk.download('stopwords')
 
 
-stop = stopwords.words('spanish')
-stopE = stopwords.words('english')
+def clusterPost(clusters=11, english=False, max_df=0.08, min_df=8):
 
-stop = stop + stopE
+    stop = stopwords.words('spanish')
+    stopE = stopwords.words('english')
 
-df = readPosts('./post', english=True)
+    stop = stop + stopE
 
-df[1] = df[1].apply(preprocessor)  # k = 21
-df.to_csv('./post_data.cleanded.csv')
+    df = readPosts('./post', english=english)
 
-# X = generateTfIdfVectorizer(df[1], stop) # k = 11
-X = generateTfIdfVectorizer(df[1], stop=stop, max_df=0.7, min_df=2) # k = 3
+    df[1] = df[1].apply(preprocessor)
+    # df.to_csv('./post_data.cleanded.csv')
 
-true_k = 3
-clusters = KmeansWrapper(true_k, X)
+    X = generateTfIdfVectorizer(df[1],
+                                stop=stop,
+                                max_df=max_df,
+                                min_df=min_df)
 
-#elbowMethod(X)
-plotPCA(df, true_k)
+    clusters = KmeansWrapper(clusters, X)
+
+    # elbowMethod(X)
+    plotPCA(df, clusters)
+
+
+#  Main
+
+# Spanish
+clusterPost()
+clusterPost(clusters=3,
+            english=True,
+            max_df=0.7,
+            min_df=2)
