@@ -28,7 +28,6 @@ def readPosts(path, english=False):
         p = os.path.join(path, file)
         if not os.path.isdir(p):
             with open(p, 'r') as infile:
-                print(p)
                 txt = infile.read()
                 title = re.search(titleRegEx, txt)
                 data = [[os.path.basename(infile.name), txt, title.group(1)]]
@@ -147,7 +146,7 @@ def elbowMethod(X, k=21):
     plt.show()
 
 
-def plotPCA(df, true_k):
+def plotPCA(df, true_k, clusters, X, english=False):
     # Plot in 2d with PCA
     dist = 1 - cosine_similarity(X)
 
@@ -180,8 +179,11 @@ def plotPCA(df, true_k):
 
     pd.set_option('display.max_rows', len(df2))
     print(df2.sort_values(by='label')[['label', 'title', 'title2']])
+
+    filename = './labels.%s.csv' % ('en' if english else 'es')
+
     df2.sort_values(by='label')[
-        ['label', 'title', 'title2']].to_csv('./labels.csv')
+        ['label', 'title', 'title2']].to_csv(filename)
     pd.reset_option('display.max_rows')
 
     # set up plot
@@ -217,9 +219,9 @@ def plotPCA(df, true_k):
         ax.text(df2.ix[i]['x'], df2.ix[i]['y'], df2.ix[i]['title'], size=4)
 
     # plt.show() # show the plot
-    plt.savefig('test.pdf', format='pdf')  # , dpi=600)
-    plt.savefig('test.eps', format='eps')  # , dpi=600)
-    plt.savefig('clusters_small_noaxes.png')  # , dpi=600)
+    # plt.savefig('test.pdf', format='pdf')  # , dpi=600)
+    # plt.savefig('test.eps', format='eps')  # , dpi=600)
+    # plt.savefig('clusters_small_noaxes.png')  # , dpi=600)
     plt.close()
 
     class TopToolbar(mpld3.plugins.PluginBase):
@@ -287,8 +289,11 @@ def plotPCA(df, true_k):
         labels = [i for i in group.title]
 
         # set tooltip using points, labels and the already defined 'css'
-        tooltip = mpld3.plugins.PointHTMLTooltip(points[0], labels,
-                                                 voffset=10, hoffset=10, css=css)
+        tooltip = mpld3.plugins.PointHTMLTooltip(points[0],
+                                                 labels,
+                                                 voffset=10,
+                                                 hoffset=10,
+                                                 css=css)
         # connect tooltip to fig
         mpld3.plugins.connect(fig, tooltip, TopToolbar())
 
@@ -306,12 +311,13 @@ def plotPCA(df, true_k):
 
     # uncomment the below to export to html
     html = mpld3.fig_to_html(fig)
-    mpld3.save_html(fig, 'name.html')
+    name = 'name.%s.html' % ('en' if english else 'es')
+    mpld3.save_html(fig, name)
 
 # nltk.download('stopwords')
 
 
-def clusterPost(clusters=11, english=False, max_df=0.08, min_df=8):
+def clusterPost(n_clusters=11, english=False, max_df=0.08, min_df=8):
 
     stop = stopwords.words('spanish')
     stopE = stopwords.words('english')
@@ -329,17 +335,21 @@ def clusterPost(clusters=11, english=False, max_df=0.08, min_df=8):
                                 max_df=max_df,
                                 min_df=min_df)
 
-    clusters = KmeansWrapper(clusters, X)
+    clusters = KmeansWrapper(n_clusters, X)
 
     # elbowMethod(X)
-    plotPCA(df, clusters)
+    plotPCA(df=df,
+            clusters=clusters,
+            true_k=n_clusters,
+            X=X,
+            english=english)
 
 
 #  Main
 
 # Spanish
 clusterPost()
-clusterPost(clusters=3,
+clusterPost(n_clusters=3,
             english=True,
             max_df=0.7,
             min_df=2)
