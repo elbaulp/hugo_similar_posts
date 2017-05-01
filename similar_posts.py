@@ -18,6 +18,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.manifold import MDS
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics.pairwise import euclidean_distances
+from sklearn.grid_search import GridSearchCV
+from sklearn.pipeline import Pipeline
 
 
 def readPosts(path, english=False):
@@ -116,7 +118,7 @@ def KmeansWrapper(true_k, data, load=False):
     else:
         km = KMeans(n_clusters=true_k,
                     init='k-means++',
-                    max_iter=1000,
+                    #max_iter=1000,
                     n_init=10,
                     n_jobs=-1,
                     random_state=0,
@@ -134,7 +136,6 @@ def elbowMethod(X, k=21):
         km2 = KMeans(n_clusters=i,
                      init='k-means++',
                      n_init=10,
-                     max_iter=1000,
                      random_state=0,
                      n_jobs=-1,
                      verbose=0)
@@ -338,7 +339,6 @@ def clusterPost(n_clusters=11, english=False, max_df=0.08, min_df=8):
 
     clusters, centers = KmeansWrapper(n_clusters, X, load=False)
 
-    # elbowMethod(X)
     plotPCA(df=df,
             clusters=clusters,
             true_k=n_clusters,
@@ -346,6 +346,8 @@ def clusterPost(n_clusters=11, english=False, max_df=0.08, min_df=8):
             english=english)
 
     print('Clusters: %d ' % n_clusters)
+
+    distortion = 0
 
     for i in xrange(n_clusters):
         print(i)
@@ -355,14 +357,84 @@ def clusterPost(n_clusters=11, english=False, max_df=0.08, min_df=8):
         # D[np.where(D > 0.7)] = 0
 
         print('Distande: %s' % D)
+        distortion += np.sum(D)
         print('Sum: %s ' % np.sum(D))
+
+    print('Distortion: %d' % distortion)
+    elbowMethod(X)
 
 
 #  Main
+def gridSearch(data, params, true_k):
+
+    tfidf = TfidfVectorizer(strip_accents=None,
+                            lowercase=True,
+                            sublinear_tf=True,
+                            analyzer='word')
+
+    lr_tfidf = Pipeline([('vect', tfidf),
+                         ('clf', KMeans(init='k-means++',
+                                        n_jobs=-1,
+                                        random_state=0,
+                                        verbose=0))])
+    gsTfIdf = GridSearchCV(
+        lr_tfidf, param_grid, n_jobs=1, verbose=1)
+
+    gsTfIdf.fit(data)
+    print()
+    print("Best score: %0.3f" % gsTfIdf.best_score_)
+    print("Best parameters set:")
+    best_parameters = gsTfIdf.best_estimator_.get_params()
+    for param_name in sorted(params.keys()):
+        print("\t%s: %r" % (param_name, best_parameters[param_name]))
+
+
+stop = stopwords.words('spanish')
+stopE = stopwords.words('english')
+stop = stop + stopE
+
+param_grid = {
+    'vect__max_df': np.arange(0.7, .5, -.05),
+    'vect__min_df': np.arange(.4, .1, -.05),
+    'vect__stop_words': [stop],
+    'vect__tokenizer': [tokenizer_porter],
+    'vect__max_features': range(32, 256, 2**6),
+    'vect__preprocessor': [preprocessor],
+    'clf__n_clusters': [2, 3, 4, 5]
+}
+
+param_grid_es = {
+    'vect__max_df': np.arange(0.7, .5, -.05),
+    'vect__min_df': np.arange(.4, .1, -.05),
+    'vect__stop_words': [stop],
+    'vect__tokenizer': [tokenizer_snowball],
+    'vect__max_features': range(32, 256, 2**6),
+    'vect__preprocessor': [preprocessor],
+    'clf__n_clusters': range(2, 21)
+}
+
+
+df = readPosts('/home/hkr/Desarrollo/algui91-hugo/content/post',
+               english=False)
+
+df[1] = df[1].apply(preprocessor)
+
+# For english
+# gridSearch(df[1], param_grid, 3) # bests, max_df=.55, min_df=.4, max_features=32, range(1,1), k = 3
+# For spanish
+# gridSearch(df[1], param_grid_es, 11) # bests, max_df=.55, min_df=.4, feat:32, k=5
 
 # Spanish
 clusterPost()
+print()
+print()
+clusterPost(max_df=.55, min_df=.4, n_clusters=5)
 # clusterPost(n_clusters=3,
-#              english=True,
-#              max_df=0.7,
-#              min_df=2)
+#             english=True,
+#             max_df=0.7,
+#             min_df=2)
+
+# clusterPost(n_clusters=3,
+#             english=True,
+#             max_df=0.56,
+#             min_df=0.4)
