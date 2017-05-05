@@ -5,11 +5,12 @@
 
 import os
 import re
-
+import sys    # sys.setdefaultencoding is cancelled by site.py
 import matplotlib.pyplot as plt
 import pandas as pd
 import mpld3
 import numpy as np
+import frontmatter
 from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 from nltk.stem.snowball import SnowballStemmer
@@ -20,6 +21,42 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.grid_search import GridSearchCV
 from sklearn.pipeline import Pipeline
+
+
+reload(sys)    # to re-enable sys.setdefaultencoding()
+sys.setdefaultencoding('utf-8')
+
+stop = stopwords.words('spanish')
+stopE = stopwords.words('english')
+
+stop = stop + stopE + ['com', 'más', 'si', 'está', 'puede', 'ejemplo', 'usar',
+                       'aplicación', 'siguiente', 'cada', 'ser', 'vez',
+                       'hacer', 'podemos' 'cómo', 'forma', 'así', 'asi', 'dos',
+                       'tipo', 'nombre', 'ahora', 'también', 'solo', 'ver',
+                       'qué', 'pueden', 'hace', 'tener', 'número', 'valor',
+                       'artículo', 'parte', '»»', 'c', 'vamos', 'uso', 'debe',
+                       'página', 'todas', 'decir', 'están', 'puedes', 'dentro',
+                       'ello', 'blog', 'realizar', 'lugar', 'además', 'aquí',
+                       'etc', 'aunque', 'nuevo', 'último', 'será', 'tema',
+                       'bien', 'sólo', 'solo', 'hecho', 'cosas', 'poder',
+                       'simplemente', 'simple', 'artículos', 'va', 'debemos',
+                       'debería', 'hoy', 'algún', '–', 'sido', 'sí', 'éste',
+                       'varios', 'aún', 'x', 'tan', 'podría', 'seguir', 'día',
+                       'tres', 'cuatro', 'cinco', 'voy', 'ir', 'tal',
+                       'mientras', 'saber', 'existe', 'sería', 'pasar',
+                       'pueda', '¿qué', 'dejo', 'él', '»', 'ir', 'trabajar',
+                       'Éste', 'n', 'mas', 'serán', 'ejempl', 'algun',
+                       'aplicacion', 'aplic', 'bas', 'cas', 'cre', 'llam',
+                       'numer', 'pod', 'referent', 'pas', 'tambi',  u'ultim',
+                       u'unic', u'usa', u'usand', u'usuari', u'utiliz',
+                       u'variabl', u'version', u'visit', u'vist', u'web',
+                       u'\xbb\xbb', 'import', 'podr', 'util', 'gran', 'siti',
+                       'sol', 'solucion', 'aquell', 'pued', 'inform', 'deb',
+                       'archiv', 'sistem', 'mism', 'permit', 'articul', 'ea',
+                       'f', 'fc', 'non', 'bd', 'nuev', 'pdf', 'gui', 'notici',
+                       'debi', 'mejor', 'misc']
+
+stop = set(stop)
 
 
 def readPosts(path, english=False):
@@ -33,8 +70,30 @@ def readPosts(path, english=False):
         if not os.path.isdir(p):
             with open(p, 'r') as infile:
                 txt = infile.read()
+                # TODO: Refactor
+                metadata, c = frontmatter.parse(txt)
+
+                if 'author' in metadata:
+                    metadata.pop('author')
+                if 'image'in metadata:
+                    metadata.pop('image')
+                if 'lastmod' in metadata:
+                    metadata.pop('lastmod')
+                if 'date' in metadata:
+                    metadata.pop('date')
+                if 'url' in metadata:
+                    metadata.pop('url')
+                if 'category' in metadata:
+                    metadata.pop('category')
+                if 'mainclass' in metadata:
+                    metadata.pop('mainclass')
+
+                text = u''
+                for i in metadata.keys():
+                    text += ' ' + str(metadata[i]) + ' '
+
                 title = re.search(titleRegEx, txt)
-                data = [[os.path.basename(infile.name), txt, title.group(1)]]
+                data = [[os.path.basename(infile.name), text, title.group(1)]]
 
                 isEnglish = re.search('\.en\.md|\.en\.markdown', infile.name)
 
@@ -52,6 +111,7 @@ def readPosts(path, english=False):
 def preprocessor(text):
     # TODO: Remove punctuation
     # Remove frontmatter
+
     text = re.sub(r'^\s*---.*---\s*$', '', text,
                   flags=re.DOTALL | re.MULTILINE | re.UNICODE)
     text = re.sub(r'^\s*\+{3}.*\+{3}\s*$', '', text,
@@ -67,21 +127,22 @@ def preprocessor(text):
     text = re.sub(r'[#|*|\[\]:.,]', '', text, flags=re.UNICODE)
     text = re.sub(r'[!"#$%&\'()*+,-./:;<=>?@\[\\\]^_`{|}~]', '', text)
     text = re.sub(r'\d*', '', text)
-    #text = re.sub(r'[\W]+', ' ', text.lower(), flags=re.UNICODE)
+    text = text.lower()
+    text = re.sub(r'[\W]+', ' ', text.lower(), flags=re.UNICODE)
 
     return text
 
 
 def tokenizer_porter(text):
     porter = PorterStemmer()
-    return [porter.stem(word) for word in text.split()]
+    return [porter.stem(word) for word in text.split() if word not in stop]
 
 # Cambiamos a este stemmer que tiene soporte para español
 
 
 def tokenizer_snowball(text):
     stemmer = SnowballStemmer("spanish")
-    return [stemmer.stem(word) for word in text.split()]
+    return [stemmer.stem(word) for word in text.split() if word not in stop]
 
 
 def stop_removal(text, stops_w):
@@ -99,11 +160,12 @@ def generateTfIdfVectorizer(data, stop='english', max_df=0.08, min_df=8):
                             sublinear_tf=True,
                             tokenizer=tokenizer,
                             analyzer='word',
-                            max_features=32,
+                            max_features=16,
                             preprocessor=preprocessor)
-
     X = tfidf.fit_transform(data)
-    print('Features: %s' % tfidf.get_feature_names())
+    print('%d Features: %s' %
+          (len(tfidf.get_feature_names()), tfidf.get_feature_names()))
+
     return X
 
 
@@ -118,7 +180,7 @@ def KmeansWrapper(true_k, data, load=False):
     else:
         km = KMeans(n_clusters=true_k,
                     init='k-means++',
-                    #max_iter=1000,
+                    # max_iter=1000,
                     n_init=10,
                     n_jobs=-1,
                     random_state=0,
@@ -319,27 +381,19 @@ def plotPCA(df, true_k, clusters, X, english=False):
 # nltk.download('stopwords')
 
 
-def clusterPost(n_clusters=11, english=False, max_df=0.08, min_df=8):
+def clusterPost(data, n_clusters, stop, english=False, max_df=0.08, min_df=8):
 
-    stop = stopwords.words('spanish')
-    stopE = stopwords.words('english')
+    # data = data.apply(preprocessor)
+    # data.to_csv('./post_data.cleanded.csv')
 
-    stop = stop + stopE
-
-    df = readPosts('/home/hkr/Desarrollo/algui91-hugo/content/post',
-                   english=english)
-
-    df[1] = df[1].apply(preprocessor)
-    # df.to_csv('./post_data.cleanded.csv')
-
-    X = generateTfIdfVectorizer(df[1],
+    X = generateTfIdfVectorizer(data[1],
                                 stop=stop,
                                 max_df=max_df,
                                 min_df=min_df)
 
     clusters, centers = KmeansWrapper(n_clusters, X, load=False)
 
-    plotPCA(df=df,
+    plotPCA(df=data,
             clusters=clusters,
             true_k=n_clusters,
             X=X,
@@ -347,21 +401,21 @@ def clusterPost(n_clusters=11, english=False, max_df=0.08, min_df=8):
 
     print('Clusters: %d ' % n_clusters)
 
-    distortion = 0
+    # distortion = 0
 
-    for i in xrange(n_clusters):
-        print(i)
-        c0 = np.where(clusters == i)
-        X_c0 = X[c0]
-        D = euclidean_distances(X_c0, centers[i])
-        # D[np.where(D > 0.7)] = 0
+    # for i in xrange(n_clusters):
+    #     print(i)
+    #     c0 = np.where(clusters == i)
+    #     X_c0 = X[c0]
+    #     D = euclidean_distances(X_c0, centers[i])
+    #     # D[np.where(D > 0.7)] = 0
 
-        print('Distande: %s' % D)
-        distortion += np.sum(D)
-        print('Sum: %s ' % np.sum(D))
+    #     print('Distande: %s' % D)
+    #     distortion += np.sum(D)
+    #     print('Sum: %s ' % np.sum(D))
 
-    print('Distortion: %d' % distortion)
-    elbowMethod(X)
+    # print('Distortion: %d' % distortion)
+    # elbowMethod(X)
 
 
 #  Main
@@ -378,7 +432,7 @@ def gridSearch(data, params, true_k):
                                         random_state=0,
                                         verbose=0))])
     gsTfIdf = GridSearchCV(
-        lr_tfidf, param_grid, n_jobs=1, verbose=1)
+        lr_tfidf, params, n_jobs=1, verbose=1)
 
     gsTfIdf.fit(data)
     print()
@@ -389,52 +443,44 @@ def gridSearch(data, params, true_k):
         print("\t%s: %r" % (param_name, best_parameters[param_name]))
 
 
-stop = stopwords.words('spanish')
-stopE = stopwords.words('english')
-stop = stop + stopE
-
-param_grid = {
-    'vect__max_df': np.arange(0.7, .5, -.05),
-    'vect__min_df': np.arange(.4, .1, -.05),
+param_grid_en = {
+    'vect__max_df': np.arange(1.0, .4, -.05),
+    'vect__min_df': np.arange(.1, .05, -.01),
     'vect__stop_words': [stop],
     'vect__tokenizer': [tokenizer_porter],
-    'vect__max_features': range(32, 256, 2**6),
+    'vect__max_features': range(10, 256, 2**6),
     'vect__preprocessor': [preprocessor],
-    'clf__n_clusters': [2, 3, 4, 5]
+    'clf__n_clusters': range(3, 10)
 }
 
 param_grid_es = {
-    'vect__max_df': np.arange(0.7, .5, -.05),
-    'vect__min_df': np.arange(.4, .1, -.05),
+    'vect__max_df': np.arange(1.0, .4, -.05),
+    'vect__min_df': np.arange(.1, .05, -.01),
     'vect__stop_words': [stop],
     'vect__tokenizer': [tokenizer_snowball],
     'vect__max_features': range(32, 256, 2**6),
     'vect__preprocessor': [preprocessor],
-    'clf__n_clusters': range(2, 21)
+    # 'vect__ngram_range': [(1, 1), (1, 2), (1, 3)],
+    'clf__n_clusters': range(3, 11)
 }
 
+dfEng = readPosts('/home/hkr/Desarrollo/algui91-hugo/content/post',
+                  english=True)
+dfEs = readPosts('/home/hkr/Desarrollo/algui91-hugo/content/post',
+                 english=False)
 
-df = readPosts('/home/hkr/Desarrollo/algui91-hugo/content/post',
-               english=False)
 
-df[1] = df[1].apply(preprocessor)
+# gridSearch(df[1], param_grid_en, 3)
+# gridSearch(df[1], param_grid_es, 11)
 
-# For english
-# gridSearch(df[1], param_grid, 3) # bests, max_df=.55, min_df=.4, max_features=32, range(1,1), k = 3
-# For spanish
-# gridSearch(df[1], param_grid_es, 11) # bests, max_df=.55, min_df=.4, feat:32, k=5
-
-# Spanish
-clusterPost()
-print()
-print()
-clusterPost(max_df=.55, min_df=.4, n_clusters=5)
-# clusterPost(n_clusters=3,
-#             english=True,
-#             max_df=0.7,
-#             min_df=2)
-
-# clusterPost(n_clusters=3,
-#             english=True,
-#             max_df=0.56,
-#             min_df=0.4)
+clusterPost(dfEs,
+            n_clusters=11,
+            stop=stop,
+            max_df=1.0,
+            min_df=5)
+clusterPost(dfEng,
+            n_clusters=7,
+            english=True,
+            stop=stop,
+            max_df=1.0,
+            min_df=.06)
