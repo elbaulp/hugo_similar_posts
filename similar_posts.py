@@ -72,22 +72,11 @@ def readPosts(path, english=False):
                 txt = infile.read()
                 # TODO: Refactor
                 metadata, c = frontmatter.parse(txt)
-
-                if 'author' in metadata:
-                    metadata.pop('author')
-                if 'image'in metadata:
-                    metadata.pop('image')
-                if 'lastmod' in metadata:
-                    metadata.pop('lastmod')
-                if 'date' in metadata:
-                    metadata.pop('date')
-                if 'url' in metadata:
-                    metadata.pop('url')
-                if 'category' in metadata:
-                    metadata.pop('category')
-                if 'mainclass' in metadata:
-                    metadata.pop('mainclass')
-
+                toRemove = ('author', 'image', 'lastmod', 'date',
+                            'url', 'category', 'mainclass', 'color')
+                for tag in toRemove:
+                    if tag in metadata:
+                        metadata.pop(tag)
                 text = u''
                 for i in metadata.keys():
                     text += ' ' + str(metadata[i]) + ' '
