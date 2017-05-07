@@ -11,6 +11,7 @@ import pandas as pd
 import mpld3
 import numpy as np
 import frontmatter
+import pytoml as toml
 from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 from nltk.stem.snowball import SnowballStemmer
@@ -54,7 +55,7 @@ stop = stop + stopE + ['com', 'más', 'si', 'está', 'puede', 'ejemplo', 'usar',
                        'sol', 'solucion', 'aquell', 'pued', 'inform', 'deb',
                        'archiv', 'sistem', 'mism', 'permit', 'articul', 'ea',
                        'f', 'fc', 'non', 'bd', 'nuev', 'pdf', 'gui', 'notici',
-                       'debi', 'mejor', 'misc']
+                       'debi', 'mejor', 'misc', 'use', 'websit']
 
 stop = set(stop)
 
@@ -63,26 +64,35 @@ def readPosts(path, english=False):
     """Read posts in path and return a pandas Data frame"""
 
     df = pd.DataFrame()
-    titleRegEx = r'title ?[:=] ?"?([^"\n]*)'
+    # titleRegEx = r'title ?[:=] ?"?([^"\n]*)'
 
     for file in os.listdir(path):
         p = os.path.join(path, file)
         if not os.path.isdir(p):
             with open(p, 'r') as infile:
                 txt = infile.read()
-                # TODO: Refactor
-                metadata, c = frontmatter.parse(txt)
+
+                if txt.startswith('+++'):
+                    txt = re.search(r'^\s*\+{3}(.*)\+{3}\s*$', txt,
+                                    flags=re.DOTALL | re.MULTILINE
+                                    | re.UNICODE).group(1)
+                    metadata = toml.loads(txt)
+                else:
+                    metadata, c = frontmatter.parse(txt)
+
+                title = metadata.get('title')
+
                 toRemove = ('author', 'image', 'lastmod', 'date',
                             'url', 'category', 'mainclass', 'color')
                 for tag in toRemove:
                     if tag in metadata:
                         metadata.pop(tag)
+
                 text = u''
                 for i in metadata.keys():
                     text += ' ' + str(metadata[i]) + ' '
 
-                title = re.search(titleRegEx, txt)
-                data = [[os.path.basename(infile.name), text, title.group(1)]]
+                data = [[os.path.basename(infile.name), text, title]]
 
                 isEnglish = re.search('\.en\.md|\.en\.markdown', infile.name)
 
@@ -404,7 +414,7 @@ def clusterPost(data, n_clusters, stop, english=False, max_df=0.08, min_df=8):
     #     print('Sum: %s ' % np.sum(D))
 
     # print('Distortion: %d' % distortion)
-    # elbowMethod(X)
+    elbowMethod(X)
 
 
 #  Main
@@ -463,7 +473,7 @@ dfEs = readPosts('/home/hkr/Desarrollo/algui91-hugo/content/post',
 # gridSearch(df[1], param_grid_es, 11)
 
 clusterPost(dfEs,
-            n_clusters=11,
+            n_clusters=15,
             stop=stop,
             max_df=1.0,
             min_df=5)
