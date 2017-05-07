@@ -5,22 +5,22 @@
 
 import os
 import re
-import sys    # sys.setdefaultencoding is cancelled by site.py
+import sys
+
+import frontmatter
 import matplotlib.pyplot as plt
 import pandas as pd
+import pytoml as toml
 import mpld3
 import numpy as np
-import frontmatter
-import pytoml as toml
 from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 from nltk.stem.snowball import SnowballStemmer
 from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.grid_search import GridSearchCV
 from sklearn.manifold import MDS
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.metrics.pairwise import euclidean_distances
-from sklearn.grid_search import GridSearchCV
 from sklearn.pipeline import Pipeline
 
 
