@@ -82,15 +82,18 @@ def readPosts(path, english=False):
 
                 title = metadata.get('title')
 
-                toRemove = ('author', 'image', 'lastmod', 'date',
-                            'url', 'category', 'mainclass', 'color')
-                for tag in toRemove:
-                    if tag in metadata:
-                        metadata.pop(tag)
+                # toRemove = ('author', 'image', 'lastmod', 'date',
+                #             'url', 'category', 'mainclass', 'color')
+                # for tag in toRemove:
+                #     if tag in metadata:
+                #         metadata.pop(tag)
+                tags = ('title', 'tags', 'introduction', 'description')
 
-                text = u''
-                for i in metadata.keys():
-                    text += ' ' + str(metadata[i]) + ' '
+                text = ''
+
+                for tag in tags:
+                    if tag in metadata:
+                        text += ' ' + str(metadata[tag])
 
                 data = [[os.path.basename(infile.name), text, title]]
 
@@ -111,6 +114,7 @@ def preprocessor(text):
     # TODO: Remove punctuation
     # Remove frontmatter
 
+    text = re.sub(r"u'", '', text)
     text = re.sub(r'^\s*---.*---\s*$', '', text,
                   flags=re.DOTALL | re.MULTILINE | re.UNICODE)
     text = re.sub(r'^\s*\+{3}.*\+{3}\s*$', '', text,
