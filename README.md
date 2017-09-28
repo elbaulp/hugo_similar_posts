@@ -1,6 +1,6 @@
 # Hugo Similar Posts
 
-Computing similar posts for my blog using Sklearn Kmeans
+Computing similar posts for my [blog](https://elbauldelprogramador.com/en/) using Sklearn Kmeans
 
 # Usage
 
